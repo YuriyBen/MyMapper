@@ -19,8 +19,8 @@ namespace MyMapper
     public class User
     {
         public int Id { get; set; }
-        public string Password { get; set; }
         public string UserName { get; set; }
+        public string Password { get; set; }
         public override string ToString()
         {
             return $"Id: {Id}\nPassword: {Password}\nUserName: {UserName}";
@@ -31,13 +31,12 @@ namespace MyMapper
         static void Main(string[] args)
         {
             User user = new User() { Id=12,Password="sdf",UserName="sdfgsdf"};
-            Dictionary<string, Dictionary<object, object>> propertiesBaseClass = new Dictionary<string, Dictionary<object, object>>();
+            Dictionary<string, KeyValuePair<object, object>> propertiesBaseClass = new Dictionary<string, KeyValuePair<object, object>>();
             var arrayUser = user.GetType().GetProperties();
-            Dictionary<object, object> typeValue;
+            KeyValuePair<object, object> typeValue;
             foreach (var item in arrayUser)
             {
-                typeValue = new Dictionary<object, object>();
-                typeValue.Add(item.PropertyType, item.GetValue(user));
+                typeValue = new KeyValuePair<object, object>(item.PropertyType, item.GetValue(user));
                 propertiesBaseClass.Add(item.Name, typeValue);
             }
 
@@ -53,13 +52,12 @@ namespace MyMapper
             Console.WriteLine();
             
 
-            Dictionary<string, Dictionary<object, object>> propertiesDTOClass = new Dictionary<string, Dictionary<object, object>>();
+            Dictionary<string,KeyValuePair<object, object>> propertiesDTOClass = new Dictionary<string, KeyValuePair<object, object>>();
             var arrayUserDTO = userDTO.GetType().GetProperties();
-            Dictionary<object, object> typeValueDTO;
+            KeyValuePair<object, object> typeValueDTO;
             foreach (var item in arrayUserDTO)
             {
-                typeValueDTO = new Dictionary<object, object>();
-                typeValueDTO.Add(item.PropertyType, item.GetValue(userDTO));
+                typeValueDTO = new KeyValuePair<object, object>(item.PropertyType, item.GetValue(userDTO));
                 propertiesDTOClass.Add(item.Name, typeValueDTO);
             }
 
@@ -77,7 +75,7 @@ namespace MyMapper
 
                     if (baseS == dtoS)
                     {
-                        var dictInsideDictBase = propertiesBaseClass.ElementAt(i).Value.ElementAt(0).Value;
+                        var dictInsideDictBase = propertiesBaseClass.ElementAt(i).Value.Value;
                         
                         PropertyInfo dtoSValue = userDTO.GetType().GetProperty(dtoS);
 
