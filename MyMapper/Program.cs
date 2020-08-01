@@ -1,99 +1,95 @@
-﻿using System;
+﻿using MyMapper.Entities;
+using MyMapper.Models;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 
 namespace MyMapper
 {
-    public class UserDTO
+    
+    
+    struct MainProperties
     {
-        public int MyProperty { get; set; }
-        public int Id { get; set; }
-        public string Password { get; set; }
-        public string UserName { get; set; }
-        public override string ToString()
-        {
-            return $"Id: {Id}\nPassword: {Password}\nUserName: {UserName}\nMyProperty: {MyProperty}";
-        }
-    }
-    public class User
-    {
-        public int Id { get; set; }
-        public string UserName { get; set; }
-        public string Password { get; set; }
-        public override string ToString()
-        {
-            return $"Id: {Id}\nPassword: {Password}\nUserName: {UserName}";
-        }
+        public string PropertyName { get; set; }
+        public object PropertyType { get; set; }
     }
     class Program
     {
-        static void Main(string[] args)
+        static MainProperties Map(string namespaceDTO, string namespaceEntity)
         {
-            User user = new User() { Id=12,Password="sdf",UserName="sdfgsdf"};
-            Dictionary<string, KeyValuePair<object, object>> propertiesBaseClass = new Dictionary<string, KeyValuePair<object, object>>();
-            var arrayUser = user.GetType().GetProperties();
-            KeyValuePair<object, object> typeValue;
-            foreach (var item in arrayUser)
-            {
-                typeValue = new KeyValuePair<object, object>(item.PropertyType, item.GetValue(user));
-                propertiesBaseClass.Add(item.Name, typeValue);
-            }
+            var classDTONames = Assembly.GetExecutingAssembly().GetTypes()
+                      .Where(t => t.Namespace == namespaceDTO)
+                      .Select(x=>x.Name).ToList();
 
-            UserDTO userDTO = new UserDTO();
 
-            Console.WriteLine("User before manipulation");
-            Console.WriteLine(user);
-            Console.WriteLine();
-            Console.WriteLine();
-            Console.WriteLine("UserDTO before manipulation");
-            Console.WriteLine(userDTO);
-            Console.WriteLine();
-            Console.WriteLine();
-            
+            var classEntityNames = Assembly.GetExecutingAssembly().GetTypes()
+                      .Where(t => t.Namespace == namespaceEntity)
+                      .Select(x => x.Name).ToList();
 
-            Dictionary<string,KeyValuePair<object, object>> propertiesDTOClass = new Dictionary<string, KeyValuePair<object, object>>();
-            var arrayUserDTO = userDTO.GetType().GetProperties();
-            KeyValuePair<object, object> typeValueDTO;
-            foreach (var item in arrayUserDTO)
-            {
-                typeValueDTO = new KeyValuePair<object, object>(item.PropertyType, item.GetValue(userDTO));
-                propertiesDTOClass.Add(item.Name, typeValueDTO);
-            }
-
-           
-
-            int baseLenth = propertiesBaseClass.Count;
-            int dtoLenth = propertiesDTOClass.Count;
+            var x = new List<string>();
             int i = 0;
-            while (i!=baseLenth )
+            Dictionary<string,object> mainPropertiesEntity=new Dictionary<string, object>(); 
+            Dictionary<string, object> mainPropertiesDTO=new Dictionary<string, object>();
+            StringBuilder mainLogic=new StringBuilder();
+            mainLogic.AppendLine($"using System;\nusing {namespaceDTO};\nusing {namespaceEntity};");
+            string namespaceForCreation = Assembly.GetEntryAssembly().EntryPoint.DeclaringType.Namespace;
+            mainLogic.AppendLine($"namespace {namespaceForCreation}.Extensions");
+            mainLogic.AppendLine("{");
+            while (i!=classEntityNames.Count)
             {
-                for (int k = 0; k < dtoLenth; k++)
+                for (int k = 0; k < classDTONames.Count; k++)
                 {
-                    string baseS = propertiesBaseClass.ElementAt(i).Key;
-                    string dtoS = propertiesDTOClass.ElementAt(k).Key;
-
-                    if (baseS == dtoS)
+                    if (($"{classEntityNames[i]}dto").Equals(classDTONames[k], StringComparison.InvariantCultureIgnoreCase))
                     {
-                        var dictInsideDictBase = propertiesBaseClass.ElementAt(i).Value.Value;
-                        
-                        PropertyInfo dtoSValue = userDTO.GetType().GetProperty(dtoS);
+                        mainLogic.AppendLine($"  public static {classEntityNames[i]} To{classEntityNames[i]}(this {classDTONames[k]} {classDTONames[k].Replace(classDTONames[k][0], char.ToLower(classDTONames[k][0]))})");
+                        mainLogic.AppendLine("   {");
+                        mainLogic.AppendLine($"\t{classEntityNames[i]} {classEntityNames[i].Replace(classEntityNames[i][0], char.ToLower(classEntityNames[i][0]))} = new {classEntityNames[i]}(); ");
 
-                        dtoSValue.SetValue(userDTO, dictInsideDictBase);
+                        var propertiesEntity = Type.GetType($"{namespaceEntity}.{classEntityNames[i]}").GetProperties();
+                        foreach (var item in propertiesEntity)
+                        {
+                            mainPropertiesEntity.Add(item.Name, item.PropertyType);
+                        }
 
+                        var propertiesDTO = Type.GetType($"{namespaceDTO}.{classDTONames[k]}").GetProperties();
+                        foreach (var item in propertiesDTO)
+                        {
+                            mainPropertiesDTO.Add(item.Name, item.PropertyType);
+                        }
+                        int j = 0;
+                        while (j != mainPropertiesEntity.Count)
+                        {
+                            for (int h = 0; h < mainPropertiesDTO.Count; h++)
+                            {
+                                if (mainPropertiesEntity.ElementAt(j).Equals(mainPropertiesDTO.ElementAt(h)))
+                                {
+                                    mainLogic.AppendLine($"\t{classEntityNames[i].Replace(classEntityNames[i][0], char.ToLower(classEntityNames[i][0]))}.{mainPropertiesEntity.ElementAt(j).Key} = {classDTONames[k].Replace(classDTONames[k][0], char.ToLower(classDTONames[k][0]))}.{mainPropertiesDTO.ElementAt(h).Key};");
+                                }
+                            }
+                            j++;
+                        }
+                        mainLogic.AppendLine($"\treturn {classEntityNames[i].Replace(classEntityNames[i][0], char.ToLower(classEntityNames[i][0]))};");
                     }
                 }
                 i++;
-
             }
-            Console.WriteLine("User");
-            Console.WriteLine(user);
-            Console.WriteLine();
-            Console.WriteLine();
-            Console.WriteLine("UserDTO");
-            Console.WriteLine(userDTO);
-            Console.WriteLine();
 
+            mainLogic.AppendLine("   }");
+            mainLogic.AppendLine("}");
+
+            Console.WriteLine(mainLogic);
+            
+
+            return default;
+        }
+        static void Main(string[] args)
+        {
+
+            Map("MyMapper.Models", "MyMapper.Entities");
+            //TODO
+           
         }
     }
 }
