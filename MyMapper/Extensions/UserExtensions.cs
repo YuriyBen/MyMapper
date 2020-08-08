@@ -7,7 +7,7 @@ namespace MyMapper.Extensions
 		public static User ToUser(this UserDTO userDTO)
 		{
 			User user = new User(); 
-			user.Id = userDTO.UserId;
+			user.Id = userDTO.Id;
 			user.UserName = userDTO.UserName;
 			user.Password = userDTO.Password;
 			return user;
@@ -15,10 +15,11 @@ namespace MyMapper.Extensions
 		public static UserDTO ToUserDTO(this User user)
 		{
 			UserDTO userDTO = new UserDTO(); 
-			userDTO.UserId = user.Id;
+			userDTO.Id = user.Id;
 			userDTO.UserName = user.UserName;
 			userDTO.Password = user.Password;
 			return userDTO;
 		}
 	}
 }
+

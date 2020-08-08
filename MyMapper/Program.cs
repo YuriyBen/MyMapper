@@ -1,5 +1,4 @@
 ﻿using MyMapper.Entities;
-using MyMapper.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -10,40 +9,47 @@ using System.Text;
 
 namespace MyMapper
 {
-    class Program
+    public static class StringExtension
     {
-        #warning Relocate the variables
-        static string projectDirectory = Directory.GetParent(Environment.CurrentDirectory).Parent.Parent.ToString();
-        static string folderLocation = $@"{projectDirectory}\Extensions";
-        static void/* ? void ? */ CreateFolder(string folderLocation)
+        public static string FirstCharacterToLower(this string text)
+        {
+            return text.Replace(text[0], char.ToLower(text[0]));
+        }
+    }
+    class ClassProperties
+    {
+        public string ClassName { get; set; }
+        public Dictionary<string, object> mainProperties { get; set; } = new Dictionary<string, object>();
+    }
+
+    static class FilesManipulation 
+    {
+        public static void CreateFile(string fullPathToFileWhichWillBeCreated, StringBuilder mainLogicInFile)
+        {
+            using (StreamWriter sw = File.CreateText(fullPathToFileWhichWillBeCreated))
+            {
+                sw.WriteLine(mainLogicInFile);
+            }
+            string fileName = fullPathToFileWhichWillBeCreated.Split(@"\")[^1];
+            Console.WriteLine($"Updating a file {fileName}...");
+        }
+        public static void CreateFolder(string folderLocation)
         {
             bool exists = Directory.Exists(folderLocation);
+            string folderName = folderLocation.Split(@"\")[^1];
 
             if (!exists)
             {
                 Directory.CreateDirectory(folderLocation);
-                Console.WriteLine("Creating a folder...");
+
+                Console.WriteLine($"Creating a folder {folderName}...");
             }
             else
             {
-                Console.WriteLine("Folder is currently exist..");
+                Console.WriteLine($"Folder {folderName} is currently exist..");
             }
         }
-        static void/* ? void ? */ CreateFile(string fileName,StringBuilder mainLogicInFile)
-        {
-            string path = $@"{folderLocation}\{fileName}Extensions.cs";
-            using (StreamWriter sw = File.CreateText(path))
-            {
-                sw.Write(mainLogicInFile);
-
-            }
-
-        }
-        static string FirstCharacterToLow(string text)
-        {
-            return text.Replace(text[0], char.ToLower(text[0]));
-        }
-        static StringBuilder GenerateScriptForFile(string dtoName, string entityName,StringBuilder toDTO, StringBuilder toEntity, string namespaceDTO = "MyMapper.Models", string namespaceEntity = "MyMapper.Entities")
+        public static StringBuilder GenerateScriptForFile(string dtoName, string entityName, StringBuilder toDTO, StringBuilder toEntity, string namespaceDTO = "MyMapper.Models", string namespaceEntity = "MyMapper.Entities")
         {
             StringBuilder mainLogic = new StringBuilder();
             mainLogic.AppendLine($"using {namespaceDTO};\nusing {namespaceEntity};");
@@ -52,107 +58,139 @@ namespace MyMapper
             mainLogic.AppendLine("{");
             mainLogic.AppendLine($"\tpublic static class {entityName}MapperExtensions");
             mainLogic.AppendLine("\t{");
-            mainLogic.AppendLine($"\t\tpublic static {entityName} To{entityName}(this {dtoName} {FirstCharacterToLow(dtoName)})");
+            mainLogic.AppendLine($"\t\tpublic static {entityName} To{entityName}(this {dtoName} {dtoName.FirstCharacterToLower()})");
             mainLogic.AppendLine("\t\t{");
-            mainLogic.AppendLine($"\t\t\t{entityName} {FirstCharacterToLow(entityName)} = new {entityName}(); ");
+            mainLogic.AppendLine($"\t\t\t{entityName} {entityName.FirstCharacterToLower()} = new {entityName}(); ");
 
             mainLogic.Append(toDTO);
-            
-            mainLogic.AppendLine($"\t\t\treturn {FirstCharacterToLow(entityName)};");
+
+            mainLogic.AppendLine($"\t\t\treturn {entityName.FirstCharacterToLower()};");
             mainLogic.AppendLine("\t\t}");
 
-            mainLogic.AppendLine($"\t\tpublic static {dtoName} To{dtoName}(this {entityName} {FirstCharacterToLow(entityName)})");
+            mainLogic.AppendLine($"\t\tpublic static {dtoName} To{dtoName}(this {entityName} {entityName.FirstCharacterToLower()})");
             mainLogic.AppendLine("\t\t{");
-            mainLogic.AppendLine($"\t\t\t{dtoName} {FirstCharacterToLow(dtoName)} = new {dtoName}(); ");
+            mainLogic.AppendLine($"\t\t\t{dtoName} {dtoName.FirstCharacterToLower()} = new {dtoName}(); ");
 
             mainLogic.Append(toEntity);
 
-            mainLogic.AppendLine($"\t\t\treturn {FirstCharacterToLow(dtoName)};");
+            mainLogic.AppendLine($"\t\t\treturn {dtoName.FirstCharacterToLower()};");
             mainLogic.AppendLine("\t\t}");
             mainLogic.AppendLine("\t}");
             mainLogic.AppendLine("}");
             return mainLogic;
         }
-        static void Map(string namespaceDTO= "MyMapper.Models", string namespaceEntity= "MyMapper.Entities")
+
+        
+    }
+    class Program
+    {
+#warning Relocate the variables
+        static string projectDirectory = Directory.GetParent(Environment.CurrentDirectory).Parent.Parent.ToString();
+        static string folderLocation = $@"{projectDirectory}\Extensions";
+        
+        
+        static void Map(string namespaceDTO = "MyMapper.Models", string namespaceEntity = "MyMapper.Entities")
         {
             var classDTONames = Assembly.GetExecutingAssembly().GetTypes()
                       .Where(t => t.Namespace == namespaceDTO)
-                      .Select(x=>x.Name).ToList();
+                      .Select(x => x.Name).ToList();
 
 
             var classEntityNames = Assembly.GetExecutingAssembly().GetTypes()
                       .Where(t => t.Namespace == namespaceEntity)
                       .Select(x => x.Name).ToList();
 
-            int i = 0;
-            Dictionary<string, object> mainPropertiesEntity=null;
-            Dictionary<string, object> mainPropertiesDTO = null;
-            StringBuilder toDTO = null ;
-            StringBuilder toEntity = null;
 
-            string dtoName = null;
-            string entityName = null;
-
-            while (i!=classEntityNames.Count)
+            #region Create a dto class if not exist
+            var entityClassNamesWithoutDTO = classEntityNames.Except(classDTONames.Select(l => l.Replace("DTO", ""))).ToList();
+            foreach (string dtoNameToCreate in entityClassNamesWithoutDTO)
             {
-                toDTO = new StringBuilder();
-                toEntity = new StringBuilder();
-
-                mainPropertiesEntity = new Dictionary<string, object>();
-                mainPropertiesDTO = new Dictionary<string, object>();
-                for (int k = 0; k < classDTONames.Count; k++)
+                string[] lines = File.ReadAllLines(@$"{projectDirectory}\Entities\{dtoNameToCreate}.cs");
+                for (int i = 0; i < lines.Length; i++)
                 {
-                    if (($"{classEntityNames[i]}dto").Equals(classDTONames[k], StringComparison.InvariantCultureIgnoreCase))
-                    {
-                        var propertiesEntity = Type.GetType($"{namespaceEntity}.{classEntityNames[i]}").GetProperties();
-                        foreach (var item in propertiesEntity)
-                        {
-                            mainPropertiesEntity.Add(item.Name, item.PropertyType);
-                        }
-
-                        var propertiesDTO = Type.GetType($"{namespaceDTO}.{classDTONames[k]}").GetProperties();
-                        foreach (var item in propertiesDTO)
-                        {
-                            mainPropertiesDTO.Add(item.Name, item.PropertyType);
-                        }
-                        dtoName = classDTONames[k];
-                        entityName = classEntityNames[i];
-
-                    }
+                    lines[i] = lines[i].Replace($"{namespaceEntity}", $"{namespaceDTO}").Replace($"class {dtoNameToCreate}", $"class {dtoNameToCreate}DTO");
                 }
-
-                int j = 0;
-                while (j != mainPropertiesEntity.Count)
+                StringBuilder allLines = new StringBuilder();
+                foreach (var item in lines)
                 {
-                    for (int h = 0; h < mainPropertiesDTO.Count; h++)
-                    {
-                        if ((mainPropertiesEntity.ElementAt(j).Key.Equals(mainPropertiesDTO.ElementAt(h).Key)
-                            || $"{entityName}{mainPropertiesEntity.ElementAt(j).Key}".Equals(mainPropertiesDTO.ElementAt(h).Key, StringComparison.InvariantCultureIgnoreCase)
-                            || mainPropertiesEntity.ElementAt(j).Key.Equals($"{entityName}{mainPropertiesDTO.ElementAt(h).Key}", StringComparison.InvariantCultureIgnoreCase)
-                            ) && mainPropertiesEntity.ElementAt(j).Value.Equals(mainPropertiesDTO.ElementAt(h).Value))
-                        {
-                            toDTO.AppendLine($"\t\t\t{FirstCharacterToLow(entityName)}.{mainPropertiesEntity.ElementAt(j).Key} = {FirstCharacterToLow(dtoName)}.{mainPropertiesDTO.ElementAt(h).Key};");
-                            toEntity.AppendLine($"\t\t\t{FirstCharacterToLow(dtoName)}.{mainPropertiesDTO.ElementAt(h).Key} = {FirstCharacterToLow(entityName)}.{mainPropertiesEntity.ElementAt(j).Key};");
-
-                        }
-                    }
-
-                    j++;
+                    allLines.AppendLine(item);
                 }
-                CreateFile(entityName, GenerateScriptForFile(dtoName,entityName, toDTO,toEntity));
-
-                i++;
+                FilesManipulation.CreateFile(@$"{projectDirectory}\Models\{dtoNameToCreate}DTO.cs", allLines);
             }
+            #endregion
+            //
+            List<ClassProperties> mainPropertiesEntity = GetClassProperties(classEntityNames,namespaceEntity);
+            List<ClassProperties> mainPropertiesDTO = GetClassProperties(classDTONames, namespaceDTO);
 
+            int j = 0;
+            string entityName;
+            string dtoName;
+
+            while (j != mainPropertiesEntity.Count)
+            {
+                for (int h = 0; h < mainPropertiesDTO.Count; h++)
+                {
+                    entityName = mainPropertiesEntity[j].ClassName;
+                    dtoName = mainPropertiesDTO[h].ClassName;
+                    if ($"{entityName}dto".Equals($"{dtoName}", StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        (StringBuilder toEntity, StringBuilder toDTO) GenerateScripts = 
+                            SortOutThePropertiesAndGenerateScripts(mainPropertiesEntity[j].mainProperties, mainPropertiesDTO[h].mainProperties,entityName,dtoName);
+
+                        StringBuilder logicData = FilesManipulation.GenerateScriptForFile(dtoName, entityName, GenerateScripts.toDTO, GenerateScripts.toEntity);
+                        FilesManipulation.CreateFile($@"{folderLocation}\{entityName}Extensions.cs", logicData);
+                    }
+                }
+                j++;
+            }
         }
+
+        private static (StringBuilder, StringBuilder) SortOutThePropertiesAndGenerateScripts(Dictionary<string, object> mainPropertiesEntity, Dictionary<string, object> mainPropertiesDTO,string entityName, string dtoName)
+        {
+            StringBuilder toDTO = new StringBuilder();
+            StringBuilder toEntity = new StringBuilder();
+            for (int a = 0; a < mainPropertiesEntity.Count; a++)
+            {
+                for (int s = 0; s < mainPropertiesDTO.Count; s++)
+                {
+                    if ((mainPropertiesEntity.ElementAt(a).Key.Equals(mainPropertiesDTO.ElementAt(s).Key)
+                    || $"{entityName}{mainPropertiesEntity.ElementAt(a).Key}".Equals(mainPropertiesDTO.ElementAt(s).Key, StringComparison.InvariantCultureIgnoreCase)
+                    || mainPropertiesEntity.ElementAt(a).Key.Equals($"{entityName}{mainPropertiesDTO.ElementAt(s).Key}", StringComparison.InvariantCultureIgnoreCase)
+                    ) && mainPropertiesEntity.ElementAt(a).Value.Equals(mainPropertiesDTO.ElementAt(s).Value))
+                    {
+                        toDTO.AppendLine($"\t\t\t{entityName.FirstCharacterToLower()}.{mainPropertiesEntity.ElementAt(a).Key} = {dtoName.FirstCharacterToLower()}.{mainPropertiesDTO.ElementAt(s).Key};");
+                        toEntity.AppendLine($"\t\t\t{dtoName.FirstCharacterToLower()}.{mainPropertiesDTO.ElementAt(s).Key} = {entityName.FirstCharacterToLower()}.{mainPropertiesEntity.ElementAt(a).Key};");
+                    }
+                }
+            }
+            return (toEntity, toDTO);
+        }
+        private static List<ClassProperties> GetClassProperties(List<string> classNames,string namespaceToClass)
+        {
+            List<ClassProperties> mainPropertiesToReturn = new List<ClassProperties>();
+            Dictionary<string, object> mainProperties = default;
+            for (int x = 0; x < classNames.Count; x++)
+            {
+                mainProperties = new Dictionary<string, object>();
+                var propertiesEntity = Type.GetType($"{namespaceToClass}.{classNames[x]}").GetProperties();
+                foreach (var item in propertiesEntity)
+                {
+                    mainProperties.Add(item.Name, item.PropertyType);
+                }
+                mainPropertiesToReturn.Add(new ClassProperties { ClassName = classNames[x], mainProperties = mainProperties });
+            }
+            return mainPropertiesToReturn;
+        }
+
         static void Main(string[] args)
         {
 
-            CreateFolder(folderLocation);
+            FilesManipulation.CreateFolder(folderLocation);
 
             Map();
-            Console.WriteLine();
 
+
+            Console.WriteLine();
 
 
 
